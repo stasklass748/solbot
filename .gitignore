@@ -20,3 +20,5 @@ x_keyword_terms.private.txt
 id_ed25519*
 siwc-credentials*
 oauth-credentials*
+chatgpt-credentials*
+chatgpt-host-id

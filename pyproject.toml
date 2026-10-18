@@ -7,12 +7,13 @@ name = "meme-narrative-collector"
 version = "0.1.0"
 description = "Budget-limited Pump.fun narrative research collector"
 requires-python = ">=3.11"
-dependencies = ["websockets>=13,<16"]
+dependencies = ["websockets>=13,<16", "PyJWT[crypto]>=2.10,<3"]
 
 [project.scripts]
 meme-collector = "narrative_collector.cli:main"
 meme-idea-bot = "narrative_collector.idea_bot:main"
 meme-idea-telegram = "narrative_collector.telegram_ui:main"
+meme-chatgpt-auth = "narrative_collector.chatgpt_plan:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

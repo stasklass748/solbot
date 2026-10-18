@@ -9,20 +9,46 @@ installation. Databases, API keys, Telegram IDs, private watchlists, the full
 keyword lexicon, OAuth sessions, and SSH credentials are deliberately excluded.
 The included `x_keyword_terms.txt` is only a four-phrase example.
 
-## Current authentication status
+## ChatGPT Plus sign-in (opt-in)
 
-The AI analyzer in this version uses an **OpenAI API key with separate API
-billing**. ChatGPT Plus does not turn `OPENAI_API_KEY` into a Plus-funded key.
-The code does not yet implement Sign in with ChatGPT or its credential refresh
-and streaming requirements. Merely making this repository public does not
-switch an installed bot to Plus. Leave `AI_BOT_AUTO_ENABLED=false` until you
-have consciously configured and tested an authorized inference method.
+The bot has two explicit AI modes. `AI_AUTH_MODE=api_key` uses a separately
+billed OpenAI API key. `AI_AUTH_MODE=chatgpt_plan` uses the official Sign in with
+ChatGPT flow for an eligible ChatGPT account and the account's authorized plan
+usage. It is **not** a free or unlimited API key: OpenAI's account and app
+limits still apply. Neither a public repository nor an existing Plus
+subscription switches a running VPS automatically.
 
-OpenAI documents ChatGPT plan usage for open-source clients, including a
-self-hosted VM flow, with interactive OAuth consent, protected credentials,
-account-specific model selection, and streaming Responses requests. A future
-integration must implement those requirements and be tested under the chosen
-account; do not paste passwords or browser cookies into this project.
+For the plan mode, install the package on the computer where you will complete
+the browser sign-in. Run `meme-chatgpt-auth login` there, not in an SSH session;
+the callback is on `127.0.0.1` of the machine with the browser. Approve the
+app's plan-usage permission in the official OpenAI page. `meme-chatgpt-auth
+status` displays the connected account without exposing tokens. Use
+`meme-chatgpt-auth models` to list model slugs available to this account, then
+set `OPENAI_MODEL` to a listed slug.
+
+For a self-hosted VPS, install the same package there, run
+`meme-chatgpt-auth --credentials /PRIVATE/PATH/chatgpt-credentials.json host-init`
+on the VPS to create its own persistent host ID, and securely copy only the
+protected credential JSON from your local computer to that path over SSH.
+Ensure the file is owned by the service account, readable only by it (mode
+`0600`), and never copy the laptop's `chatgpt-host-id`. Configure:
+
+```dotenv
+AI_AUTH_MODE=chatgpt_plan
+CHATGPT_CREDENTIALS_FILE=/PRIVATE/PATH/chatgpt-credentials.json
+OPENAI_API_KEY=
+OPENAI_MODEL=MODEL_SLUG_FROM_MODELS_COMMAND
+```
+
+The VPS then owns access-token refreshes. Keep the AI timer off until `status`
+and `models` succeed **as the service account**, and test one bounded analysis
+before enabling automatic alerts. Only the X→AI→Telegram analyzer currently
+uses the plan mode; the optional migration-learning worker still uses its
+separately billed API-key path. Sign-in and inference have not been exercised
+against this user's account or VPS in this source release.
+
+Do not paste OAuth tokens, ChatGPT passwords, cookies, or the credential file
+into a chat, issue, or repository. The code requests no ChatGPT conversations.
 See [open-source plan usage](https://developers.openai.com/siwc/token-sharing-open-source),
 [self-hosted VMs](https://developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms),
 and [models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference).
