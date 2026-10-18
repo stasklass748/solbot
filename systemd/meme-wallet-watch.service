@@ -1,0 +1,12 @@
+[Unit]
+Description=Public Solana wallet observation worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/meme-collector --env-dir /opt/meme-narrative-collector/meme-narrative-collector watch-wallets
+NoNewPrivileges=true
+PrivateTmp=true

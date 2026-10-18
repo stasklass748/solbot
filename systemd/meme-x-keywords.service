@@ -1,0 +1,13 @@
+[Unit]
+Description=Credit-capped rotating search across user-supplied X keyword phrases
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/usr/bin/flock -n /opt/meme-narrative-collector/meme-narrative-collector/data/x-keywords.lock /opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/python -m narrative_collector.x_keyword_search --env-dir /opt/meme-narrative-collector/meme-narrative-collector --execute
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=180

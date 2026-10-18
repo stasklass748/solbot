@@ -1,0 +1,13 @@
+[Unit]
+Description=Bounded AI narrative analyst and Telegram alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/usr/bin/flock -n /opt/meme-narrative-collector/meme-narrative-collector/data/idea-analyzer.lock /opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/meme-idea-bot --env-dir /opt/meme-narrative-collector/meme-narrative-collector --auto
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=180

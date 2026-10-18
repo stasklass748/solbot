@@ -1,0 +1,11 @@
+[Unit]
+Description=Recheck a deterministic X-first sample every ten minutes
+
+[Timer]
+OnCalendar=*-*-* *:5/10:00
+AccuracySec=1min
+Persistent=true
+Unit=meme-x-followup.service
+
+[Install]
+WantedBy=timers.target

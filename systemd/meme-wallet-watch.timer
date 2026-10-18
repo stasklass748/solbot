@@ -1,0 +1,11 @@
+[Unit]
+Description=Observe public wallet activity every 30 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00,30:00
+AccuracySec=1min
+Unit=meme-wallet-watch.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

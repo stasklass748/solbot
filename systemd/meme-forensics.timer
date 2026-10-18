@@ -1,0 +1,11 @@
+[Unit]
+Description=Run one migrated-token forensic job every hour
+
+[Timer]
+OnCalendar=hourly
+AccuracySec=1min
+Unit=meme-forensics.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

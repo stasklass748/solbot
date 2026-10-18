@@ -1,0 +1,11 @@
+[Unit]
+Description=Analyze new X posts individually within one minute of collection
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=15s
+Persistent=false
+Unit=meme-idea-analyzer.service
+
+[Install]
+WantedBy=timers.target

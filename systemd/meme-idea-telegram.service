@@ -1,0 +1,18 @@
+[Unit]
+Description=Telegram idea review interface
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/usr/bin/flock -n /opt/meme-narrative-collector/meme-narrative-collector/data/idea-telegram.lock /opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/meme-idea-telegram --env-dir /opt/meme-narrative-collector/meme-narrative-collector --continuous
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

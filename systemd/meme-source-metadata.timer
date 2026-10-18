@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect a bounded migrated-token IPFS metadata batch every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:2/5:00
+AccuracySec=1min
+Persistent=true
+Unit=meme-source-metadata.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample independent X posts every ten minutes under a credit cap
+
+[Timer]
+OnCalendar=*-*-* *:0/10:00
+AccuracySec=1min
+Persistent=true
+Unit=meme-x-first.service
+
+[Install]
+WantedBy=timers.target

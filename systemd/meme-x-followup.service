@@ -1,0 +1,13 @@
+[Unit]
+Description=Bounded 1h and 24h X-first post followup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/usr/bin/flock -w 120 /opt/meme-narrative-collector/meme-narrative-collector/data/x-api.lock /opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/meme-collector --env-dir /opt/meme-narrative-collector/meme-narrative-collector x-followup
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=180

@@ -1,0 +1,11 @@
+[Unit]
+Description=Read Telegram idea review buttons and commands every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:30
+AccuracySec=15s
+Persistent=false
+Unit=meme-idea-telegram.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Bounded IPFS source metadata collection for migrated tokens
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=collector
+WorkingDirectory=/opt/meme-narrative-collector/meme-narrative-collector
+ExecStart=/opt/meme-narrative-collector/meme-narrative-collector/.venv/bin/meme-collector --env-dir /opt/meme-narrative-collector/meme-narrative-collector source-metadata
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=180
