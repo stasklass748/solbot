@@ -249,6 +249,9 @@ def main() -> None:
                 max_ai_calls_per_day=int(os.environ.get("AI_MAX_CALLS_PER_DAY", "0")),
                 max_alerts_per_day=int(os.environ.get("AI_MAX_ALERTS_PER_DAY", "0")),
                 min_views=int(os.environ.get("AI_MIN_VIEWS", "5000")),
+                auth_mode=os.environ.get("AI_AUTH_MODE", "api_key"),
+                chatgpt_credentials=(Path(os.environ["CHATGPT_CREDENTIALS_FILE"])
+                                     if os.environ.get("CHATGPT_CREDENTIALS_FILE") else None),
             )
             print(json.dumps(run(config), ensure_ascii=False))
         except (OSError, sqlite3.Error, RuntimeError, ValueError) as exc:

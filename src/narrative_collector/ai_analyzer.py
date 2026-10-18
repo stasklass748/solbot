@@ -135,10 +135,18 @@ class Config:
     max_ai_calls_per_day: int = 0
     max_alerts_per_day: int = 0
     min_views: int = 5000
+    auth_mode: str = "api_key"
+    chatgpt_credentials: Path | None = None
 
     def validate(self) -> None:
-        if not self.openai_key or not self.telegram_token or not self.telegram_chat_id:
-            raise ValueError("OPENAI_API_KEY, TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS are required")
+        if self.auth_mode not in {"api_key", "chatgpt_plan"}:
+            raise ValueError("AI_AUTH_MODE must be api_key or chatgpt_plan")
+        if self.auth_mode == "api_key" and not self.openai_key:
+            raise ValueError("OPENAI_API_KEY is required in api_key mode")
+        if self.auth_mode == "chatgpt_plan" and self.chatgpt_credentials is None:
+            raise ValueError("CHATGPT_CREDENTIALS_FILE is required in chatgpt_plan mode")
+        if not self.telegram_token or not self.telegram_chat_id:
+            raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS are required")
         parse_chat_ids(self.telegram_chat_id)
         if not 1 <= self.max_posts_per_run <= 30:
             raise ValueError("AI_MAX_POSTS_PER_RUN must be 1..30")
@@ -159,6 +167,30 @@ class OpenAIAnalyst:
         self.last_usage: dict = {}
 
     def analyze(self, post: Post) -> dict:
+        body = self._body(post)
+        request = urllib.request.Request(
+            "https://api.openai.com/v1/responses",
+            data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST",
+            headers={"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.load(response)
+        except urllib.error.HTTPError as exc:
+            _raise_openai_http_error(exc)
+        except urllib.error.URLError:
+            raise RuntimeError("OpenAI API network error") from None
+        if payload.get("status") != "completed":
+            raise RuntimeError("OpenAI response not completed")
+        self.last_usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+        text = "".join(
+            content.get("text", "")
+            for item in payload.get("output", []) if item.get("type") == "message"
+            for content in item.get("content", []) if content.get("type") == "output_text"
+        )
+        return self._parse(text)
+
+    def _body(self, post: Post) -> dict:
         evidence = {
             "post_id": post.post_id, "url": post.url,
             "created_at": post.created_at.isoformat(), "author": post.author,
@@ -180,45 +212,10 @@ class OpenAIAnalyst:
             "text": {"format": {"type": "json_schema", "name": "meme_narrative_post",
                                 "strict": True, "schema": SCHEMA}},
         }
-        request = urllib.request.Request(
-            "https://api.openai.com/v1/responses",
-            data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST",
-            headers={"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as exc:
-            code = "unknown"
-            try:
-                error = json.loads(exc.read(4096)).get("error") or {}
-                raw_code = error.get("code") or error.get("type") or "unknown"
-                if isinstance(raw_code, str) and re.fullmatch(r"[a-z0-9_]{1,80}", raw_code):
-                    code = raw_code
-            except (OSError, TypeError, ValueError, AttributeError):
-                pass
-            raw_delay = exc.headers.get("Retry-After", "") if exc.headers else ""
-            delay = 0
-            if isinstance(raw_delay, str) and raw_delay.isdigit():
-                delay = min(int(raw_delay), 31_536_000)
-            elif raw_delay:
-                try:
-                    retry_at = parsedate_to_datetime(raw_delay)
-                    delay = max(0, min(int((retry_at - datetime.now(timezone.utc)).total_seconds()),
-                                       31_536_000))
-                except (TypeError, ValueError, OverflowError):
-                    pass
-            raise OpenAIAPIError(exc.code, code, delay) from None
-        except urllib.error.URLError:
-            raise RuntimeError("OpenAI API network error") from None
-        if payload.get("status") != "completed":
-            raise RuntimeError("OpenAI response not completed")
-        self.last_usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
-        text = "".join(
-            content.get("text", "")
-            for item in payload.get("output", []) if item.get("type") == "message"
-            for content in item.get("content", []) if content.get("type") == "output_text"
-        )
+        return body
+
+    @staticmethod
+    def _parse(text: str) -> dict:
         try:
             result = json.loads(text)
         except (TypeError, ValueError):
@@ -226,6 +223,91 @@ class OpenAIAnalyst:
         if not isinstance(result, dict) or not isinstance(result.get("interesting"), bool):
             raise RuntimeError("OpenAI response has unexpected structure")
         return result
+
+
+class ChatGPTPlanAnalyst(OpenAIAnalyst):
+    """The same analyst using an explicit ChatGPT plan grant, never an API key."""
+
+    def __init__(self, credentials: Path, model: str):
+        super().__init__("", model)
+        self.credentials = credentials
+
+    def analyze(self, post: Post) -> dict:
+        from .chatgpt_plan import access_token
+
+        body = self._body(post)
+        if isinstance(body["input"], str):
+            body["input"] = [{"role": "user", "content": body["input"]}]
+        body["store"] = False
+        body["stream"] = True
+        request = urllib.request.Request(
+            "https://api.openai.com/v1/responses",
+            data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST",
+            headers={"Authorization": "Bearer " + access_token(self.credentials),
+                     "Content-Type": "application/json"},
+        )
+        chunks: list[str] = []
+        completed = False
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                for line in response:
+                    line = line.decode("utf-8") if isinstance(line, bytes) else line
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:].strip()
+                    if data == "[DONE]":
+                        break
+                    event = json.loads(data)
+                    kind = event.get("type", "")
+                    if kind == "response.output_text.delta":
+                        chunks.append(event.get("delta", ""))
+                    elif kind == "response.failed":
+                        error = (event.get("response") or {}).get("error") or {}
+                        code = str(error.get("code") or "unknown")
+                        if code in {"subscription_sharing_usage_limit_exceeded",
+                                    "subscription_sharing_usage_unavailable"}:
+                            raise OpenAIAPIError(429, code)
+                        raise RuntimeError(f"ChatGPT plan inference failed ({code})")
+                    elif kind == "response.incomplete":
+                        raise RuntimeError("ChatGPT plan inference incomplete")
+                    elif kind == "response.completed":
+                        completed = True
+                        final = event.get("response") or {}
+                        self.last_usage = final.get("usage") if isinstance(final.get("usage"), dict) else {}
+                        if not chunks:
+                            chunks = [content.get("text", "")
+                                      for item in final.get("output", []) if item.get("type") == "message"
+                                      for content in item.get("content", []) if content.get("type") == "output_text"]
+        except urllib.error.HTTPError as exc:
+            _raise_openai_http_error(exc)
+        except urllib.error.URLError:
+            raise RuntimeError("ChatGPT plan network error") from None
+        if not completed:
+            raise RuntimeError("ChatGPT plan stream ended without response.completed")
+        return self._parse("".join(chunks))
+
+
+def _raise_openai_http_error(exc: urllib.error.HTTPError) -> None:
+    code = "unknown"
+    try:
+        error = json.loads(exc.read(4096)).get("error") or {}
+        raw_code = error.get("code") or error.get("type") or "unknown"
+        if isinstance(raw_code, str) and re.fullmatch(r"[a-z0-9_]{1,80}", raw_code):
+            code = raw_code
+    except (OSError, TypeError, ValueError, AttributeError):
+        pass
+    raw_delay = exc.headers.get("Retry-After", "") if exc.headers else ""
+    delay = 0
+    if isinstance(raw_delay, str) and raw_delay.isdigit():
+        delay = min(int(raw_delay), 31_536_000)
+    elif raw_delay:
+        try:
+            retry_at = parsedate_to_datetime(raw_delay)
+            delay = max(0, min(int((retry_at - datetime.now(timezone.utc)).total_seconds()),
+                               31_536_000))
+        except (TypeError, ValueError, OverflowError):
+            pass
+    raise OpenAIAPIError(exc.code, code, delay) from None
 
 
 class OpenAIAPIError(RuntimeError):
@@ -578,7 +660,9 @@ def run(config: Config, now: datetime | None = None,
                                    config.run_id, config.min_views)
         if not posts:
             return {"status": "no_candidates", "posts": 0, "ai_calls": 0, "sent": 0}
-        model = analyst or OpenAIAnalyst(config.openai_key, config.model)
+        model = analyst or (ChatGPTPlanAnalyst(config.chatgpt_credentials, config.model)
+                            if config.auth_mode == "chatgpt_plan" else
+                            OpenAIAnalyst(config.openai_key, config.model))
         calls = 0
         sent = 0
         delivery_errors = 0
