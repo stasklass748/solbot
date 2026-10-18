@@ -1,0 +1,14 @@
+[
+  {
+    "label": "fresh_memes",
+    "query": "(\"new meme\" OR \"this meme\" OR \"meme of the day\") lang:en min_faves:10 -filter:retweets -memecoin -pump.fun",
+    "interval_minutes": 10,
+    "max_pages": 1
+  },
+  {
+    "label": "viral_culture",
+    "query": "(\"going viral\" OR \"viral video\") lang:en min_faves:20 -filter:retweets -memecoin -pump.fun",
+    "interval_minutes": 20,
+    "max_pages": 1
+  }
+]

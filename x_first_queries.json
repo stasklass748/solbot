@@ -1,0 +1,5 @@
+[
+  {"label": "crypto_memes", "query": "(\"meme coin\" OR memecoin OR pump.fun) lang:en -filter:retweets", "interval_minutes": 10, "max_pages": 2},
+  {"label": "meme_culture", "query": "(\"new meme\" OR \"viral meme\" OR \"internet meme\") lang:en -filter:retweets", "interval_minutes": 30, "max_pages": 1},
+  {"label": "viral_culture", "query": "(\"going viral\" OR \"viral video\") lang:en -filter:retweets", "interval_minutes": 60, "max_pages": 1}
+]

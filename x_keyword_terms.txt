@@ -1,0 +1,5 @@
+# Example phrases only. Replace locally with your own research list.
+DOG
+CAT
+NEW MASCOT
+TESLA ROADSTER
